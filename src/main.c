@@ -1,15 +1,72 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <netdb.h>
 
 #define PORT "4221" // Port number for the server
 #define BACKLOG 10	// Number of pending connections queue
+
+bool handleClient(int clientFd)
+{
+	// Receive HTTP request from the client
+	char requestBuffer[4096];
+	if (recv(clientFd, requestBuffer, sizeof(requestBuffer) - 1, 0) < 0)
+	{
+		perror("server: recv");
+		close(clientFd);
+		return (EXIT_FAILURE);
+	}
+	requestBuffer[sizeof(requestBuffer) - 1] = '\0'; // Null-terminate the string
+
+	printf("server: received HTTP request:\n%s\n", requestBuffer);
+	printf("server: processing request\n");
+
+	// Prepare HTTP response
+	const char *httpResponse;
+
+	// Check if the request is empty
+	if (strlen(requestBuffer) == 0)
+	{
+		fprintf(stderr, "server: received empty request\n");
+		httpResponse = "HTTP/1.1 400 Bad Request\r\n"
+					   "Content-Type: text/plain\r\n"
+					   "Content-Length: 15\r\n"
+					   "\r\n"
+					   "Bad Request\n";
+	}
+	else if (strstr(requestBuffer, "GET / ") != NULL)
+	{
+		httpResponse = "HTTP/1.1 200 OK\r\n"
+					   "Content-Type: text/plain\r\n"
+					   "Content-Length: 14\r\n"
+					   "\r\n"
+					   "Hello, world!\n";
+	}
+	else
+	{
+		httpResponse = "HTTP/1.1 404 Not Found\r\n"
+					   "Content-Type: text/plain\r\n"
+					   "Content-Length: 10\r\n"
+					   "\r\n"
+					   "Not Found\n";
+	}
+
+	// Send HTTP response
+	if (send(clientFd, httpResponse, strlen(httpResponse), 0) == -1)
+	{
+		perror("server: send");
+		close(clientFd);
+		return (EXIT_FAILURE);
+	}
+
+	printf("server: response sent\n");
+
+	// Close the client socket
+	close(clientFd);
+}
 
 int main()
 {
@@ -34,8 +91,8 @@ int main()
 	}
 
 	// Create a socket
-	int sockfd = socket(servAddr->ai_family, servAddr->ai_socktype, servAddr->ai_protocol);
-	if (sockfd == -1)
+	int serverFd = socket(servAddr->ai_family, servAddr->ai_socktype, servAddr->ai_protocol);
+	if (serverFd == -1)
 	{
 		perror("server: socket");
 		freeaddrinfo(servAddr);
@@ -44,19 +101,19 @@ int main()
 
 	// Set socket options to allow reuse of the address
 	int optval = 1;
-	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
+	if (setsockopt(serverFd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
 	{
 		perror("server: setsockopt");
-		close(sockfd);
+		close(serverFd);
 		freeaddrinfo(servAddr);
 		return (EXIT_FAILURE);
 	}
 
 	// Bind the socket to the address
-	if (bind(sockfd, servAddr->ai_addr, servAddr->ai_addrlen) == -1)
+	if (bind(serverFd, servAddr->ai_addr, servAddr->ai_addrlen) == -1)
 	{
 		perror("server: bind");
-		close(sockfd);
+		close(serverFd);
 		freeaddrinfo(servAddr);
 		return (EXIT_FAILURE);
 	}
@@ -67,10 +124,10 @@ int main()
 	printf("server: running on port %s\n", PORT);
 
 	// Listen for incoming connections
-	if (listen(sockfd, BACKLOG) == -1)
+	if (listen(serverFd, BACKLOG) == -1)
 	{
 		perror("server: listen");
-		close(sockfd);
+		close(serverFd);
 		return (EXIT_FAILURE);
 	}
 
@@ -79,36 +136,18 @@ int main()
 	// Accept incoming connections
 	struct sockaddr_storage clientAddr;
 	socklen_t clientAddrLen = sizeof(clientAddr);
-	int clientSockfd = accept(sockfd, (struct sockaddr *)&clientAddr, &clientAddrLen);
-	if (clientSockfd == -1)
+	int clientFd = accept(serverFd, (struct sockaddr *)&clientAddr, &clientAddrLen);
+	if (clientFd == -1)
 	{
 		perror("server: accept");
-		close(sockfd);
+		close(serverFd);
 		return (EXIT_FAILURE);
 	}
 
 	printf("server: connection accepted\n");
-
-	// Send HTTP response
-	const char *httpResponse = "HTTP/1.1 200 OK\r\n"
-							   "Content-Type: text/plain\r\n"
-							   "Content-Length: 14\r\n"
-							   "\r\n"
-							   "Hello, world!\n";
-	if (send(clientSockfd, httpResponse, strlen(httpResponse), 0) == -1)
-	{
-		perror("server: send");
-		close(clientSockfd);
-		close(sockfd);
-		return (EXIT_FAILURE);
-	}
-
-	printf("server: response sent\n");
-
-	// Close the client socket
-	close(clientSockfd);
+	handleClient(clientFd);
 
 	// Close the server socket
-	close(sockfd);
+	close(serverFd);
 	return 0;
 }
