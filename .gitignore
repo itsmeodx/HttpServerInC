@@ -53,3 +53,9 @@ dkms.conf
 
 build
 vcpkg_installed
+
+# Visual Studio Code settings
+.vscode
+
+# HTTP server
+http-server
