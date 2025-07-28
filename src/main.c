@@ -4,22 +4,59 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
 #include <netdb.h>
 
 #define PORT "4221" // Port number for the server
 #define BACKLOG 10	// Number of pending connections queue
 
-bool handleClient(int clientFd)
+int installSignal(int signal, void (*handler)(int))
+{
+	struct sigaction sa;
+
+	sa = (struct sigaction){0};
+	sa.sa_handler = handler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+
+	if (sigaction(signal, &sa, NULL) == -1)
+	{
+		perror("server: sigaction");
+		return (EXIT_FAILURE);
+	}
+	return (EXIT_SUCCESS);
+}
+
+void handleSignal(int signal)
+{
+	if (signal == SIGINT || signal == SIGTERM)
+	{
+		printf("\rserver: shutting down...\n");
+		exit(EXIT_SUCCESS);
+	}
+	else if (signal == SIGCHLD)
+	{
+		int m_errno = errno; // Preserve errno
+
+		while (waitpid(-1, NULL, WNOHANG) > 0) // Reap zombie processes
+			;								   // No action needed, just reaping
+		errno = m_errno;					   // Restore errno after waitpid
+	}
+}
+
+int handleClient(int clientFd)
 {
 	// Receive HTTP request from the client
 	char requestBuffer[4096];
-	if (recv(clientFd, requestBuffer, sizeof(requestBuffer) - 1, 0) < 0)
+	int bytesReceived = recv(clientFd, requestBuffer, sizeof(requestBuffer) - 1, 0);
+	if (bytesReceived < 0)
 	{
 		perror("server: recv");
 		close(clientFd);
 		return (EXIT_FAILURE);
 	}
-	requestBuffer[sizeof(requestBuffer) - 1] = '\0'; // Null-terminate the string
+	requestBuffer[bytesReceived] = '\0'; // Null-terminate the string
 
 	printf("server: received HTTP request:\n%s\n", requestBuffer);
 	printf("server: processing request\n");
@@ -66,14 +103,11 @@ bool handleClient(int clientFd)
 
 	// Close the client socket
 	close(clientFd);
+	return (EXIT_SUCCESS);
 }
 
-int main()
+int startServer(const char *name, const char *port, int backlog, int *serverFd)
 {
-	// Disable output buffering
-	setbuf(stdout, NULL);
-	setbuf(stderr, NULL);
-
 	// Initialize address information
 	struct addrinfo hints, *servAddr;
 
@@ -83,7 +117,7 @@ int main()
 	hints.ai_flags = AI_PASSIVE;	 // For wildcard IP address
 
 	// Get address information for the server
-	int status = getaddrinfo(NULL, PORT, &hints, &servAddr);
+	int status = getaddrinfo(name, port, &hints, &servAddr);
 	if (status != 0)
 	{
 		fprintf(stderr, "server: getaddrinfo: %s\n", gai_strerror(status));
@@ -91,8 +125,8 @@ int main()
 	}
 
 	// Create a socket
-	int serverFd = socket(servAddr->ai_family, servAddr->ai_socktype, servAddr->ai_protocol);
-	if (serverFd == -1)
+	*serverFd = socket(servAddr->ai_family, servAddr->ai_socktype, servAddr->ai_protocol);
+	if (*serverFd == -1)
 	{
 		perror("server: socket");
 		freeaddrinfo(servAddr);
@@ -101,19 +135,19 @@ int main()
 
 	// Set socket options to allow reuse of the address
 	int optval = 1;
-	if (setsockopt(serverFd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
+	if (setsockopt(*serverFd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
 	{
 		perror("server: setsockopt");
-		close(serverFd);
+		close(*serverFd);
 		freeaddrinfo(servAddr);
 		return (EXIT_FAILURE);
 	}
 
 	// Bind the socket to the address
-	if (bind(serverFd, servAddr->ai_addr, servAddr->ai_addrlen) == -1)
+	if (bind(*serverFd, servAddr->ai_addr, servAddr->ai_addrlen) == -1)
 	{
 		perror("server: bind");
-		close(serverFd);
+		close(*serverFd);
 		freeaddrinfo(servAddr);
 		return (EXIT_FAILURE);
 	}
@@ -121,31 +155,65 @@ int main()
 	// Free the address information structure
 	freeaddrinfo(servAddr);
 
-	printf("server: running on port %s\n", PORT);
-
 	// Listen for incoming connections
-	if (listen(serverFd, BACKLOG) == -1)
+	if (listen(*serverFd, backlog) == -1)
 	{
 		perror("server: listen");
-		close(serverFd);
+		close(*serverFd);
 		return (EXIT_FAILURE);
 	}
 
-	printf("server: waiting for connections...\n", PORT);
+	printf("server: running on port %s\n", PORT);
+	printf("server: waiting for incoming connections...\n");
+	return (EXIT_SUCCESS);
+}
+
+int main()
+{
+	// Disable output buffering
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
+	// Install signal handlers
+	if (installSignal(SIGINT, handleSignal) != EXIT_SUCCESS ||
+		installSignal(SIGTERM, handleSignal) != EXIT_SUCCESS ||
+		installSignal(SIGCHLD, handleSignal) != EXIT_SUCCESS)
+	{
+		fprintf(stderr, "server: failed to install signal handlers\n");
+		return (EXIT_FAILURE);
+	}
+
+	// Start the server
+	int serverFd;
+	if (startServer("localhost", PORT, BACKLOG, &serverFd) != EXIT_SUCCESS)
+	{
+		fprintf(stderr, "server: failed to start\n");
+		return (EXIT_FAILURE);
+	}
 
 	// Accept incoming connections
 	struct sockaddr_storage clientAddr;
 	socklen_t clientAddrLen = sizeof(clientAddr);
-	int clientFd = accept(serverFd, (struct sockaddr *)&clientAddr, &clientAddrLen);
-	if (clientFd == -1)
+	int clientFd;
+	for (int i = 0; i < 1; i = i)
 	{
-		perror("server: accept");
-		close(serverFd);
-		return (EXIT_FAILURE);
-	}
+		clientFd = accept(serverFd, (struct sockaddr *)&clientAddr, &clientAddrLen);
+		if (clientFd == -1)
+		{
+			perror("server: accept");
+			close(serverFd);
+			return (EXIT_FAILURE);
+		}
 
-	printf("server: connection accepted\n");
-	handleClient(clientFd);
+		printf("server: new connection accepted\n");
+		if (!fork())
+		{
+			// Child process handles the client
+			close(serverFd); // Close the server socket in the child process
+			printf("server: handling client in child process\n");
+			exit(handleClient(clientFd));
+		}
+	}
 
 	// Close the server socket
 	close(serverFd);
