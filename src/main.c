@@ -462,8 +462,16 @@ int startServer(const char *name, const char *port, int backlog, int *serverFd)
 
 int main(int argc, const char *argv[])
 {
-	(void)argc;
-	(void)argv; // Unused parameters
+	if (argc > 1 && strcmp(argv[1], "--directory") == 0 && argc > 2)
+	{
+		if (chdir(argv[2]) != 0)
+		{
+			perror("server: chdir");
+			return (EXIT_FAILURE);
+		}
+		printf("server: changed working directory to '%s'\n", argv[2]);
+	}
+
 	// Disable output buffering
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
