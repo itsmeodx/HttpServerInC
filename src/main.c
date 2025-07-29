@@ -10,6 +10,74 @@
 
 #define PORT "4221" // Port number for the server
 #define BACKLOG 10	// Number of pending connections queue
+#define HelloWorldResponse "HTTP/1.1 200 OK\r\n"          \
+						   "Content-Type: text/plain\r\n" \
+						   "Content-Length: 14\r\n"       \
+						   "\r\n"                         \
+						   "Hello, world!\n"
+#define BadRequestResponse "HTTP/1.1 400 Bad Request\r\n" \
+						   "Content-Type: text/plain\r\n" \
+						   "Content-Length: 12\r\n"       \
+						   "\r\n"                         \
+						   "Bad Request\n"
+#define NotFoundResponse "HTTP/1.1 404 Not Found\r\n"   \
+						 "Content-Type: text/plain\r\n" \
+						 "Content-Length: 10\r\n"       \
+						 "\r\n"                         \
+						 "Not Found\n"
+
+char **splitStr(const char *str, const char *delim)
+{
+	char **result = NULL;
+	size_t count = 0;
+	size_t delim_len = strlen(delim);
+	const char *start = str;
+	const char *found;
+
+	while ((found = strstr(start, delim)) != NULL)
+	{
+		size_t len = found - start;
+		char *token = malloc(len + 1);
+		if (!token)
+		{
+			perror("server: strsplit: malloc");
+			goto BAD;
+		}
+		memcpy(token, start, len);
+		token[len] = '\0';
+		result = realloc(result, sizeof(char *) * (count + 1));
+		if (!result)
+		{
+			perror("server: strsplit realloc");
+			goto BAD;
+		}
+		result[count++] = token;
+		start = found + delim_len;
+	}
+	// Add the last token
+	char *token = strdup(start);
+	if (!token)
+	{
+		perror("server: strsplit strdup");
+		goto BAD;
+	}
+	result = realloc(result, sizeof(char *) * (count + 2));
+	if (!result)
+	{
+		perror("server: strsplit realloc");
+		goto BAD;
+	}
+	result[count++] = token;
+	result[count] = NULL; // Null-terminate the array
+	return (result);
+
+BAD: // Free previously allocated tokens
+	for (size_t i = 0; i < count; i++)
+		free(result[i]);
+	free(result);
+	free(token);
+	return (NULL);
+}
 
 int installSignal(int signal, void (*handler)(int))
 {
@@ -45,16 +113,116 @@ void handleSignal(int signal)
 	}
 }
 
+char ***parseRequest(const char *request)
+{
+	// Split the request into lines
+	if (!request || strlen(request) == 0)
+	{
+		fprintf(stderr, "server: empty request\n");
+		return (NULL);
+	}
+
+	char **lines = splitStr(request, "\r\n");
+	if (!lines)
+	{
+		fprintf(stderr, "server: failed to parse request\n");
+		return (NULL);
+	}
+
+	// Count lines
+	size_t lineCount = 0;
+	while (lines[lineCount])
+		lineCount++;
+
+	// Allocate array of arrays
+	char ***tokens = malloc(sizeof(char **) * (lineCount + 1));
+	if (!tokens)
+	{
+		perror("server: parseRequest malloc");
+		for (size_t i = 0; i < lineCount; i++)
+			free(lines[i]);
+		free(lines);
+		return (NULL);
+	}
+
+	for (size_t i = 0; i < lineCount; i++)
+	{
+		tokens[i] = splitStr(lines[i], " ");
+	}
+
+	tokens[lineCount] = NULL; // Null-terminate the array of arrays
+
+	// Free lines (tokens[i] are new allocations)
+	for (size_t i = 0; i < lineCount; i++)
+		free(lines[i]);
+	free(lines);
+
+	return (tokens);
+}
+
+const char *httpGetMethod(char ***parsedRequest)
+{
+	const char *httpResponse;
+
+	if (strncmp((*parsedRequest)[1], "/echo", 4) == 0)
+	{
+		char *start = (*parsedRequest)[1] + 5; // Skip "/echo"
+		if (*start == '/')
+			start++; // Skip leading slash if present
+		size_t len = strlen(start);
+		if (len == 0)
+			httpResponse = HelloWorldResponse;
+		else
+		{
+			httpResponse = malloc(strlen("HTTP/1.1 200 OK\r\n"
+										 "Content-Type: text/plain\r\n"
+										 "Content-Length: ") +
+								  10 + len + 4);
+			if (!httpResponse)
+			{
+				perror("server: httpGetMethod malloc");
+				return (NULL);
+			}
+			sprintf((char *)httpResponse, "HTTP/1.1 200 OK\r\n"
+										  "Content-Type: text/plain\r\n"
+										  "Content-Length: %zu\r\n"
+										  "\r\n%s\n",
+					len, start);
+		}
+	}
+	else if (strncmp((*parsedRequest)[1], "/", 1) == 0)
+		httpResponse = HelloWorldResponse;
+	return (httpResponse);
+}
+
+void free2d(char **array)
+{
+	for (size_t i = 0; array && array[i]; i++)
+		free(array[i]);
+	free(array);
+}
+
+void free3d(char ***array)
+{
+	for (size_t i = 0; array && array[i]; i++)
+		free2d(array[i]);
+	free(array);
+}
+
 int handleClient(int clientFd)
 {
-	// Receive HTTP request from the client
+	const char *httpResponse = NULL;
+	char ***parsedRequest = NULL;
 	char requestBuffer[4096];
+	int status = EXIT_SUCCESS;
+
+	// Receive HTTP request from the client
 	int bytesReceived = recv(clientFd, requestBuffer, sizeof(requestBuffer) - 1, 0);
 	if (bytesReceived < 0)
 	{
 		perror("server: recv");
-		close(clientFd);
-		return (EXIT_FAILURE);
+		status = EXIT_FAILURE;
+		goto RET;
 	}
 	requestBuffer[bytesReceived] = '\0'; // Null-terminate the string
 
@@ -62,48 +230,39 @@ int handleClient(int clientFd)
 	printf("server: processing request\n");
 
 	// Prepare HTTP response
-	const char *httpResponse;
-
+	parsedRequest = parseRequest(requestBuffer);
 	// Check if the request is empty
-	if (strlen(requestBuffer) == 0)
+	if (parsedRequest == NULL || *parsedRequest == NULL)
 	{
 		fprintf(stderr, "server: received empty request\n");
-		httpResponse = "HTTP/1.1 400 Bad Request\r\n"
-					   "Content-Type: text/plain\r\n"
-					   "Content-Length: 15\r\n"
-					   "\r\n"
-					   "Bad Request\n";
+		httpResponse = BadRequestResponse;
 	}
-	else if (strstr(requestBuffer, "GET / ") != NULL)
-	{
-		httpResponse = "HTTP/1.1 200 OK\r\n"
-					   "Content-Type: text/plain\r\n"
-					   "Content-Length: 14\r\n"
-					   "\r\n"
-					   "Hello, world!\n";
-	}
+	else if (strcmp((*parsedRequest)[0], "GET") == 0)
+		httpResponse = httpGetMethod(parsedRequest);
 	else
-	{
-		httpResponse = "HTTP/1.1 404 Not Found\r\n"
-					   "Content-Type: text/plain\r\n"
-					   "Content-Length: 10\r\n"
-					   "\r\n"
-					   "Not Found\n";
-	}
+		httpResponse = NotFoundResponse;
 
 	// Send HTTP response
 	if (send(clientFd, httpResponse, strlen(httpResponse), 0) == -1)
 	{
 		perror("server: send");
-		close(clientFd);
-		return (EXIT_FAILURE);
+		status = EXIT_FAILURE;
+		goto RET;
 	}
 
 	printf("server: response sent\n");
 
-	// Close the client socket
+RET:
+	// Free allocated memory
+	free3d(parsedRequest);
+	if (strcmp(httpResponse, HelloWorldResponse) != 0 &&
+		strcmp(httpResponse, BadRequestResponse) != 0 &&
+		strcmp(httpResponse, NotFoundResponse) != 0)
+		free((char *)httpResponse);
 	close(clientFd);
-	return (EXIT_SUCCESS);
+	if (status == EXIT_FAILURE)
+		fprintf(stderr, "server: failed to handle client request\n");
+	return (status);
 }
 
 int startServer(const char *name, const char *port, int backlog, int *serverFd)
