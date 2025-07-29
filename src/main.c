@@ -403,7 +403,7 @@ int main()
 	struct sockaddr_storage clientAddr;
 	socklen_t clientAddrLen = sizeof(clientAddr);
 	int clientFd;
-	for (int i = 0; i < 1; i = i)
+	while (true)
 	{
 		clientFd = accept(serverFd, (struct sockaddr *)&clientAddr, &clientAddrLen);
 		if (clientFd == -1)
