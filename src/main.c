@@ -138,7 +138,7 @@ char ***parseRequest(const char *request)
 	char ***tokens = malloc(sizeof(char **) * (lineCount + 1));
 	if (!tokens)
 	{
-		perror("server: parseRequest malloc");
+		perror("server: parseRequest: malloc");
 		for (size_t i = 0; i < lineCount; i++)
 			free(lines[i]);
 		free(lines);
@@ -160,36 +160,83 @@ char ***parseRequest(const char *request)
 	return (tokens);
 }
 
+char **getHeader(const char *headerName, char ***parsedRequest)
+{
+	if (!headerName || !parsedRequest || !*parsedRequest)
+		return (NULL);
+
+	for (size_t i = 0; parsedRequest[i]; i++)
+		if (strncmp(parsedRequest[i][0], headerName, strlen(headerName)) == 0)
+			return (parsedRequest[i]);
+	return (NULL);
+}
+
+const char *echoEndPoint(char ***parsedRequest)
+{
+	const char *httpResponse;
+	char *start = (*parsedRequest)[1] + 5; // Skip "/echo"
+	if (*start == '/')
+		start++; // Skip leading slash if present
+	size_t len = strlen(start);
+	if (len == 0)
+		httpResponse = HelloWorldResponse;
+	else
+	{
+		httpResponse = malloc(strlen("HTTP/1.1 200 OK\r\n"
+									 "Content-Type: text/plain\r\n"
+									 "Content-Length: ") +
+							  10 + len + 4);
+		if (!httpResponse)
+		{
+			perror("server: httpGetMethod: malloc");
+			return (NULL);
+		}
+		sprintf((char *)httpResponse, "HTTP/1.1 200 OK\r\n"
+									  "Content-Type: text/plain\r\n"
+									  "Content-Length: %zu\r\n"
+									  "\r\n%s\n",
+				len, start);
+	}
+	return (httpResponse);
+}
+
+const char *userAgentEndPoint(char ***parsedRequest)
+{
+	const char *httpResponse;
+	char **userAgentHeader = getHeader("User-Agent", parsedRequest);
+	if (userAgentHeader == NULL)
+	{
+		httpResponse = BadRequestResponse;
+	}
+	else
+	{
+		size_t len = strlen(userAgentHeader[1]);
+		httpResponse = malloc(strlen("HTTP/1.1 200 OK\r\n"
+									 "Content-Type: text/plain\r\n"
+									 "Content-Length: ") +
+							  10 + len + 4);
+		if (!httpResponse)
+		{
+			perror("server: httpGetMethod: malloc");
+			return (NULL);
+		}
+		sprintf((char *)httpResponse, "HTTP/1.1 200 OK\r\n"
+									  "Content-Type: text/plain\r\n"
+									  "Content-Length: %zu\r\n"
+									  "\r\n%s\n",
+				len, userAgentHeader[1]);
+	}
+	return (httpResponse);
+}
+
 const char *httpGetMethod(char ***parsedRequest)
 {
 	const char *httpResponse;
 
 	if (strncmp((*parsedRequest)[1], "/echo", 5) == 0)
-	{
-		char *start = (*parsedRequest)[1] + 5; // Skip "/echo"
-		if (*start == '/')
-			start++; // Skip leading slash if present
-		size_t len = strlen(start);
-		if (len == 0)
-			httpResponse = HelloWorldResponse;
-		else
-		{
-			httpResponse = malloc(strlen("HTTP/1.1 200 OK\r\n"
-										 "Content-Type: text/plain\r\n"
-										 "Content-Length: ") +
-								  10 + len + 4);
-			if (!httpResponse)
-			{
-				perror("server: httpGetMethod malloc");
-				return (NULL);
-			}
-			sprintf((char *)httpResponse, "HTTP/1.1 200 OK\r\n"
-										  "Content-Type: text/plain\r\n"
-										  "Content-Length: %zu\r\n"
-										  "\r\n%s\n",
-					len, start);
-		}
-	}
+		httpResponse = echoEndPoint(parsedRequest);
+	else if (strcmp((*parsedRequest)[1], "/user-agent") == 0)
+		httpResponse = userAgentEndPoint(parsedRequest);
 	else if (strcmp((*parsedRequest)[1], "/") == 0)
 		httpResponse = HelloWorldResponse;
 	else
