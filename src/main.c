@@ -4,7 +4,9 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <signal.h>
 #include <netdb.h>
 
@@ -25,8 +27,14 @@
 						 "Content-Length: 10\r\n"       \
 						 "\r\n"                         \
 						 "Not Found\n"
+#define ForbiddenResponse "HTTP/1.1 403 Forbidden\r\n"   \
+						  "Content-Type: text/plain\r\n" \
+						  "Content-Length: 18\r\n"       \
+						  "\r\n"                         \
+						  "Permission Denied\n"
 
-char **splitStr(const char *str, const char *delim)
+char **
+splitStr(const char *str, const char *delim)
 {
 	char **result = NULL;
 	size_t count = 0;
@@ -203,11 +211,14 @@ const char *echoEndPoint(char ***parsedRequest)
 const char *userAgentEndPoint(char ***parsedRequest)
 {
 	const char *httpResponse;
+	const char *start = (*parsedRequest)[1] + 11; // Skip "/user-agent"
+	if (*start == '/')
+		start++;
+	if (*start != '\0')
+		return (BadRequestResponse);
 	char **userAgentHeader = getHeader("User-Agent", parsedRequest);
 	if (userAgentHeader == NULL)
-	{
 		httpResponse = BadRequestResponse;
-	}
 	else
 	{
 		size_t len = strlen(userAgentHeader[1]);
@@ -229,14 +240,86 @@ const char *userAgentEndPoint(char ***parsedRequest)
 	return (httpResponse);
 }
 
+long getFileSize(int fileFd)
+{
+	struct stat st;
+
+	if (fstat(fileFd, &st) == 0)
+		return (st.st_size);
+	else
+		return (-1); // Error
+}
+
+const char *filesEndPoint(char ***parsedRequest)
+{
+	const char *httpResponse;
+	const char *file;
+	const char *start = (*parsedRequest)[1] + 6; // Skip "/files"
+	if (*start == '/')
+		start++;
+	if (*start == '\0')
+		file = "index.html";
+	else
+		file = start;
+	int fileFd = open(file, O_RDONLY);
+	if (fileFd == -1)
+	{
+		fprintf(stderr, "server: filesEndPoint: open: %s/%s: %s\n", getcwd(NULL, 0), file, strerror(errno));
+		if (errno == EACCES)
+			return (ForbiddenResponse);
+		else if (errno == ENOENT)
+			return (NotFoundResponse);
+		else
+			return (BadRequestResponse);
+	}
+	long fileSize = getFileSize(fileFd);
+	if (fileSize == -1)
+	{
+		perror("server: getFileSize");
+		close(fileFd);
+		return (BadRequestResponse);
+	}
+	httpResponse = "HTTP/1.1 200 OK\r\n"
+				   "Content-Type: application/octet-stream\r\n"
+				   "Content-Length: ";
+	httpResponse = malloc(strlen(httpResponse) + 15 + fileSize + 4);
+	if (!httpResponse)
+	{
+		close(fileFd);
+		perror("server: filesEndPoint: malloc");
+		return (BadRequestResponse);
+	}
+	sprintf((char *)httpResponse, "HTTP/1.1 200 OK\r\n"
+								  "Content-Type: application/octet-stream\r\n"
+								  "Content-Length: %ld\r\n"
+								  "\r\n",
+			fileSize);
+	size_t len = strlen(httpResponse);
+	ssize_t rc = read(fileFd, (char *)httpResponse + len, fileSize);
+	if (rc == -1)
+	{
+		perror("server: read");
+		free((char *)httpResponse);
+		close(fileFd);
+		return (BadRequestResponse);
+	}
+	((char *)httpResponse)[len + rc] = '\0'; // Null-terminate the response
+	printf("server: filesEndPoint: file '%s/%s' sent (%ld bytes)\n",
+			getcwd(NULL, 0), file, fileSize);
+	close(fileFd);
+	return (httpResponse);
+}
+
 const char *httpGetMethod(char ***parsedRequest)
 {
 	const char *httpResponse;
 
 	if (strncmp((*parsedRequest)[1], "/echo", 5) == 0)
 		httpResponse = echoEndPoint(parsedRequest);
-	else if (strcmp((*parsedRequest)[1], "/user-agent") == 0)
+	else if (strncmp((*parsedRequest)[1], "/user-agent", 11) == 0)
 		httpResponse = userAgentEndPoint(parsedRequest);
+	else if (strncmp((*parsedRequest)[1], "/files", 6) == 0)
+		httpResponse = filesEndPoint(parsedRequest);
 	else if (strcmp((*parsedRequest)[1], "/") == 0)
 		httpResponse = HelloWorldResponse;
 	else
@@ -306,7 +389,8 @@ RET:
 	free3d(parsedRequest);
 	if (strcmp(httpResponse, HelloWorldResponse) != 0 &&
 		strcmp(httpResponse, BadRequestResponse) != 0 &&
-		strcmp(httpResponse, NotFoundResponse) != 0)
+		strcmp(httpResponse, NotFoundResponse) != 0 &&
+		strcmp(httpResponse, ForbiddenResponse) != 0)
 		free((char *)httpResponse);
 	close(clientFd);
 	if (status == EXIT_FAILURE)
