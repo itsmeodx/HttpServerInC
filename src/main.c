@@ -305,7 +305,7 @@ const char *filesEndPoint(char ***parsedRequest)
 	}
 	((char *)httpResponse)[len + rc] = '\0'; // Null-terminate the response
 	printf("server: filesEndPoint: file '%s/%s' sent (%ld bytes)\n",
-			getcwd(NULL, 0), file, fileSize);
+		   getcwd(NULL, 0), file, fileSize);
 	close(fileFd);
 	return (httpResponse);
 }
@@ -460,8 +460,10 @@ int startServer(const char *name, const char *port, int backlog, int *serverFd)
 	return (EXIT_SUCCESS);
 }
 
-int main()
+int main(int argc, const char *argv[])
 {
+	(void)argc;
+	(void)argv; // Unused parameters
 	// Disable output buffering
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
