@@ -164,7 +164,7 @@ const char *httpGetMethod(char ***parsedRequest)
 {
 	const char *httpResponse;
 
-	if (strncmp((*parsedRequest)[1], "/echo", 4) == 0)
+	if (strncmp((*parsedRequest)[1], "/echo", 5) == 0)
 	{
 		char *start = (*parsedRequest)[1] + 5; // Skip "/echo"
 		if (*start == '/')
@@ -190,8 +190,10 @@ const char *httpGetMethod(char ***parsedRequest)
 					len, start);
 		}
 	}
-	else if (strncmp((*parsedRequest)[1], "/", 1) == 0)
+	else if (strcmp((*parsedRequest)[1], "/") == 0)
 		httpResponse = HelloWorldResponse;
+	else
+		httpResponse = NotFoundResponse;
 	return (httpResponse);
 }
 
