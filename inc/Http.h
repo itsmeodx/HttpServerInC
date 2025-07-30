@@ -65,9 +65,9 @@ struct HttpResponse
 	int statusCode;		  // HTTP status code
 	char *statusMessage;  // HTTP status message (e.g., "OK", "Bad Request")
 	char *contentType;	  // Content-Type header (e.g., "text/plain", "application/octet-stream")
-	size_t contentLength; // Content-Length header
 	char *headers;		  // Response headers
 	char *body;			  // Response body
+	ssize_t contentLength; // Content-Length header
 };
 
 // src/Http.c
@@ -94,6 +94,7 @@ long getFileSize(int fileFd);
 
 // src/utils/free.c
 void freeHttpRequest(struct HttpRequest *req);
+void freeHttpResponse(struct HttpResponse *resp);
 void free2d(char **array);
 void free3d(char ***array);
 

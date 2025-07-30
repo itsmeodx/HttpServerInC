@@ -10,6 +10,17 @@ void freeHttpRequest(struct HttpRequest *req)
 	free(req);
 }
 
+void freeHttpResponse(struct HttpResponse *resp)
+{
+	if (!resp)
+		return;
+	free(resp->statusMessage);
+	free(resp->contentType);
+	free(resp->headers);
+	free(resp->body);
+	free(resp);
+}
+
 void free2d(char **array)
 {
 	for (size_t i = 0; array && array[i]; i++)
