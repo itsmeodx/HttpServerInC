@@ -120,15 +120,9 @@ int handleClient(int clientFd)
 RET:
 	// Free allocated memory
 	freeHttpRequest(req);
-	if (resp) {
-		free(resp->statusMessage);
-		free(resp->contentType);
-		free(resp->headers);
-		free(resp->body);
-		free(resp);
-	}
+	freeHttpResponse(resp);
 	close(clientFd);
 	if (status == EXIT_FAILURE)
 		fprintf(stderr, "server: failed to handle client request\n");
-	return status;
+	return (status);
 }
