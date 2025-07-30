@@ -62,11 +62,11 @@ struct HttpRequest
 
 struct HttpResponse
 {
-	int statusCode;		  // HTTP status code
-	char *statusMessage;  // HTTP status message (e.g., "OK", "Bad Request")
-	char *contentType;	  // Content-Type header (e.g., "text/plain", "application/octet-stream")
-	char *headers;		  // Response headers
-	char *body;			  // Response body
+	int statusCode;		   // HTTP status code
+	char *statusMessage;   // HTTP status message (e.g., "OK", "Bad Request")
+	char *contentType;	   // Content-Type header (e.g., "text/plain", "application/octet-stream")
+	char *headers;		   // Response headers
+	char *body;			   // Response body
 	ssize_t contentLength; // Content-Length header
 };
 
@@ -97,6 +97,18 @@ void freeHttpRequest(struct HttpRequest *req);
 void freeHttpResponse(struct HttpResponse *resp);
 void free2d(char **array);
 void free3d(char ***array);
+
+// src/utils/get_output.c
+char *get_output(char **cmd);
+
+// src/utils/gnl.c
+char *get_next_line(int fd);
+
+// src/utils/mime.c
+char *getMimeType(const char *filename);
+
+// src/utils/pipe.c
+void close_pipe(int fd[2]);
 
 // src/utils/signals.c
 int installSignals(void);

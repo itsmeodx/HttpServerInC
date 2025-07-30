@@ -93,7 +93,7 @@ struct HttpResponse *getFilesEndPoint(struct HttpRequest *req)
 	}
 	resp->statusCode = HTTP_OK;
 	resp->statusMessage = strdup("OK");
-	resp->contentType = strdup("application/octet-stream");
+	resp->contentType = getMimeType(file);
 	resp->contentLength = fileSize;
 	resp->body = malloc(fileSize);
 	if (!resp->body)
