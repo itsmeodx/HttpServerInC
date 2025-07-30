@@ -106,17 +106,22 @@ struct HttpResponse *getFilesEndPoint(struct HttpRequest *req)
 		resp->body = strdup("Bad Request\n");
 		return (resp);
 	}
-	ssize_t rc = read(fileFd, resp->body, fileSize);
-	if (rc == -1)
+	ssize_t totalRead = 0;
+	while (totalRead < fileSize)
 	{
-		close(fileFd);
-		free(resp->body);
-		resp->statusCode = HTTP_BAD_REQUEST;
-		resp->statusMessage = strdup("Bad Request");
-		resp->contentType = strdup("text/plain");
-		resp->contentLength = 12;
-		resp->body = strdup("Bad Request\n");
-		return (resp);
+		ssize_t rc = read(fileFd, resp->body + totalRead, fileSize - totalRead);
+		if (rc <= 0)
+		{
+			close(fileFd);
+			free(resp->body);
+			resp->statusCode = HTTP_BAD_REQUEST;
+			resp->statusMessage = strdup("Bad Request");
+			resp->contentType = strdup("text/plain");
+			resp->contentLength = 12;
+			resp->body = strdup("Bad Request\n");
+			return (resp);
+		}
+		totalRead += rc;
 	}
 	close(fileFd);
 	return (resp);

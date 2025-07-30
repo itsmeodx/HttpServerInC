@@ -108,29 +108,40 @@ ssize_t sendHttpResponse(int clientFd, struct HttpResponse *response)
 					   "HTTP/1.1 %d %s\r\n"
 					   "Content-Type: %s\r\n"
 					   "Content-Length: %zu\r\n"
-					   "%s\r\n", // Additional headers
+					   "%s\r\n",
 					   response->statusCode,
 					   response->statusMessage,
 					   response->contentType,
 					   response->contentLength,
 					   response->headers ? response->headers : "");
-	bytesSent = send(clientFd, responseBuffer, len, 0);
-	if (bytesSent < 0)
+	ssize_t totalSent = 0;
+	while (totalSent < len)
 	{
-		perror("server: sendHttpResponse: send");
-		free(responseBuffer);
-		return (-1);
-	}
-	if (response->body)
-	{
-		ssize_t bodyBytesSent = send(clientFd, response->body, response->contentLength, 0);
-		if (bodyBytesSent < 0)
+		ssize_t sent = send(clientFd, responseBuffer + totalSent, len - totalSent, 0);
+		if (sent <= 0)
 		{
-			perror("server: sendHttpResponse: send body");
+			perror("server: sendHttpResponse: send");
 			free(responseBuffer);
 			return (-1);
 		}
-		bytesSent += bodyBytesSent;
+		totalSent += sent;
+	}
+	bytesSent = totalSent;
+	if (response->body && response->contentLength > 0)
+	{
+		ssize_t bodySent = 0;
+		while (bodySent < response->contentLength)
+		{
+			ssize_t sent = send(clientFd, response->body + bodySent, response->contentLength - bodySent, 0);
+			if (sent <= 0)
+			{
+				perror("server: sendHttpResponse: send body");
+				free(responseBuffer);
+				return (-1);
+			}
+			bodySent += sent;
+		}
+		bytesSent += bodySent;
 	}
 	free(responseBuffer);
 	return (bytesSent);
