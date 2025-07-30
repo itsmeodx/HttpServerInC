@@ -98,22 +98,34 @@ ssize_t sendHttpResponse(int clientFd, struct HttpResponse *response)
 		return (-1);
 
 	ssize_t bytesSent = 0;
-	char *responseBuffer = malloc(sizeof(char) * BUFFERSIZE); // Allocate a buffer for the response
+	// Calculate required header buffer size
+	size_t headersLen = strlen(response->statusMessage) + strlen(response->contentType) + 128;
+	size_t extraHeadersLen = response->headers ? strlen(response->headers) : 0;
+	headersLen += extraHeadersLen;
+	char *responseBuffer = malloc(headersLen);
 	if (!responseBuffer)
 	{
 		perror("server: sendHttpResponse: malloc");
 		return (-1);
 	}
-	int len = snprintf(responseBuffer, BUFFERSIZE,
+	int len = snprintf(responseBuffer, headersLen,
 					   "HTTP/1.1 %d %s\r\n"
 					   "Content-Type: %s\r\n"
 					   "Content-Length: %zu\r\n"
-					   "%s\r\n",
+					   "Connection: close\r\n"
+					   "%s"
+					   "\r\n",
 					   response->statusCode,
 					   response->statusMessage,
 					   response->contentType,
 					   response->contentLength,
 					   response->headers ? response->headers : "");
+	if (len < 0 || (size_t)len >= headersLen)
+	{
+		free(responseBuffer);
+		perror("server: sendHttpResponse: snprintf overflow");
+		return (-1);
+	}
 	ssize_t totalSent = 0;
 	while (totalSent < len)
 	{
