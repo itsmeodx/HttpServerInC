@@ -108,8 +108,7 @@ ssize_t sendHttpResponse(int clientFd, struct HttpResponse *response)
 					   "HTTP/1.1 %d %s\r\n"
 					   "Content-Type: %s\r\n"
 					   "Content-Length: %zu\r\n"
-					   "%s\r\n" // Additional headers
-					   "\r\n",
+					   "%s\r\n", // Additional headers
 					   response->statusCode,
 					   response->statusMessage,
 					   response->contentType,
