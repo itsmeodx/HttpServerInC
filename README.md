@@ -1,37 +1,79 @@
-[![progress-banner](https://backend.codecrafters.io/progress/http-server/352c0b63-9664-4470-b946-39d93863c54f)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
-This is a starting point for C solutions to the
-["Build Your Own HTTP server" Challenge](https://app.codecrafters.io/courses/http-server/overview).
 
-[HTTP](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) is the
-protocol that powers the web. In this challenge, you'll build a HTTP/1.1 server
-that is capable of serving multiple clients.
 
-Along the way you'll learn about TCP servers,
-[HTTP request syntax](https://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html),
-and more.
+![C](https://img.shields.io/badge/language-C-blue.svg) ![HTTP](https://img.shields.io/badge/protocol-HTTP%2F1.1-green.svg) ![MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+# 🚀 HTTP Server in C
 
-# Passing the first stage
+Welcome! This is a fast, minimal, and modular HTTP/1.1 server written in C. It demonstrates:
+- ⚡ Networking and socket programming
+- 📁 File I/O and static file serving
+- 📦 HTTP protocol parsing and response formatting
+- 🏷️ MIME type detection (extension-based and fallback)
+- 🧩 Modular design and robust error handling
 
-The entry point for your HTTP server implementation is in `src/main.c`. Study
-and uncomment the relevant code, and push your changes to pass the first stage:
+**Source:** [src/](src/) | [inc/](inc/)
 
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
+**Author:** [itsmeodx](https://github.com/itsmeodx)
+
+
+## ✨ Features
+- Serve static files from any directory
+- RESTful endpoints:
+  - `GET /echo/<text>` → 🗣️ Echoes text
+  - `GET /user-agent` → 🕵️ Returns User-Agent header
+  - `GET /files/<filename>` → 📥 Download files
+  - `POST /files/<filename>` → 📤 Upload files
+- Automatic MIME type detection for correct file serving
+
+
+## ⚡ Quick Start
+- Build and Run:
+   ```sh
+   ./your_program.sh
+   ```
+
+## Hints
+- The server listens on port `4221` by default.
+- The server serves files from the current directory.
+- You can change the server's root directory by passing the `--directory` option:
+   ```sh
+   ./your_program.sh --directory /path/to/your/files
+   ```
+- For more options, run:
+   ```sh
+   ./your_program.sh --help
+   ```
+
+## 🌐 Example
+Visit [`http://localhost:4221/echo/hello`](http://localhost:4221/echo/hello) in your browser.
+Or try [`/files/index.html`](http://localhost:4221/files/index.html) for static file serving.
+
+
+## 📁 Structure
+
+```
+.
+├── src/
+│   ├── main.c            # Entry point
+│   ├── Http.c            # Core HTTP logic
+│   ├── HttpEndPoints.c   # Endpoint handlers
+│   ├── HttpMethods.c     # Routing logic
+│   └── utils/            # Utility functions
+├── inc/
+│   └── Http.h            # Main header
 ```
 
-Time to move on to the next stage!
 
-# Stage 2 & beyond
 
-Note: This section is for stages 2 and beyond.
+## 📜 License
+GNU General Public License v3.0
 
-1. Ensure you have `cmake` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/main.c`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+---
+Made with ❤️ by [itsmeodx](https://github.com/itsmeodx)
+
+
+<div align="center">
+  <sub>Thanks for visiting! Happy coding 🚀</sub>
+</div>
+
