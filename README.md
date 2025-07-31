@@ -1,8 +1,13 @@
 
 
 
-![C](https://img.shields.io/badge/language-C-blue.svg) ![HTTP](https://img.shields.io/badge/protocol-HTTP%2F1.1-green.svg) ![MIT](https://img.shields.io/badge/license-MIT-yellow.svg)
+![C](https://img.shields.io/badge/language-C-blue.svg) ![HTTP](https://img.shields.io/badge/protocol-HTTP%2F1.1-green.svg) ![GNU GPL v3.0](https://img.shields.io/badge/license-GNU%20GPL%20v3.0-red.svg) ![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-orange.svg) ![GitHub contributors](https://img.shields.io/github/contributors/itsmeodx/HttpServerInC) ![GitHub last commit](https://img.shields.io/github/last-commit/itsmeodx/HttpServerInC.svg) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/itsmeodx/HttpServerInC)
+![GitHub issues](https://img.shields.io/github/issues/itsmeodx/HttpServerInC) ![GitHub pull requests](https://img.shields.io/github/issues-pr/itsmeodx/HttpServerInC)
+![GitHub repo size](https://img.shields.io/github/repo-size/itsmeodx/HttpServerInC) ![GitHub code size](https://img.shields.io/github/languages/code-size/itsmeodx/HttpServerInC) ![GitHub language count](https://img.shields.io/github/languages/count/itsmeodx/HttpServerInC)
+![GitHub top language](https://img.shields.io/github/languages/top/itsmeodx/HttpServerInC)
 
+
+![GitHub Repo stars](https://img.shields.io/github/stars/itsmeodx/HttpServerInC?style=social) ![GitHub forks](https://img.shields.io/github/forks/itsmeodx/HttpServerInC?style=social) ![GitHub watchers](https://img.shields.io/github/watchers/itsmeodx/HttpServerInC?style=social)
 # 🚀 HTTP Server in C
 
 Welcome! This is a fast, minimal, and modular HTTP/1.1 server written in C. It demonstrates:
