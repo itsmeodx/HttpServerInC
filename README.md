@@ -1,6 +1,3 @@
-
-
-
 ![C](https://img.shields.io/badge/language-C-blue.svg) ![HTTP](https://img.shields.io/badge/protocol-HTTP%2F1.1-green.svg) ![GNU GPL v3.0](https://img.shields.io/badge/license-GNU%20GPL%20v3.0-red.svg) ![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-orange.svg) ![GitHub contributors](https://img.shields.io/github/contributors/itsmeodx/HttpServerInC) ![GitHub last commit](https://img.shields.io/github/last-commit/itsmeodx/HttpServerInC.svg) ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/itsmeodx/HttpServerInC)
 ![GitHub issues](https://img.shields.io/github/issues/itsmeodx/HttpServerInC) ![GitHub pull requests](https://img.shields.io/github/issues-pr/itsmeodx/HttpServerInC)
 ![GitHub repo size](https://img.shields.io/github/repo-size/itsmeodx/HttpServerInC) ![GitHub code size](https://img.shields.io/github/languages/code-size/itsmeodx/HttpServerInC) ![GitHub language count](https://img.shields.io/github/languages/count/itsmeodx/HttpServerInC)
@@ -17,10 +14,15 @@ Welcome! This is a fast, minimal, and modular HTTP/1.1 server written in C. It d
 - 🏷️ MIME type detection (extension-based and fallback)
 - 🧩 Modular design and robust error handling
 
-**Source:** [src/](src/) | [inc/](inc/)
-
-**Author:** [itsmeodx](https://github.com/itsmeodx)
-
+## 📖 Table of Contents
+- [🚀 HTTP Server in C](#-http-server-in-c)
+	- [📖 Table of Contents](#-table-of-contents)
+	- [✨ Features](#-features)
+	- [⚡ Quick Start](#-quick-start)
+	- [⚙️ Configuration](#️-configuration)
+	- [🌐 Example](#-example)
+	- [📁 Structure](#-structure)
+	- [📜 License](#-license)
 
 ## ✨ Features
 - Serve static files from any directory
@@ -38,10 +40,10 @@ Welcome! This is a fast, minimal, and modular HTTP/1.1 server written in C. It d
    ./your_program.sh
    ```
 
-## Hints
+## ⚙️ Configuration
 - The server listens on port `4221` by default.
-- The server serves files from the current directory.
-- You can change the server's root directory by passing the `--directory` option:
+- The server serves files from it's working directory.
+- You can change the server's working directory by passing the `--directory` option:
    ```sh
    ./your_program.sh --directory /path/to/your/files
    ```
@@ -72,13 +74,18 @@ Or try [`/files/index.html`](http://localhost:4221/files/index.html) for static 
 
 
 ## 📜 License
-GNU General Public License v3.0
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for details.
 
 ---
-Made with ❤️ by [itsmeodx](https://github.com/itsmeodx)
-
 
 <div align="center">
-  <sub>Thanks for visiting! Happy coding 🚀</sub>
+<h4>Made with <span style="color:#e25555;">❤️</span> by <a href="https://github.com/itsmeodx">Me</a></h4>
+<p><b>Feel free to contribute, report issues, or suggest improvements!</b></p>
+<p>
+  <a href="https://github.com/itsmeodx/HttpServerInC/issues" style="text-decoration:none;">
+    <b>Check out the issues page for more information.</b>
+  </a>
+</p>
+<sub><span style="font-size:1.2em;">Thanks for visiting! Happy coding 🚀</span></sub>
 </div>
 
