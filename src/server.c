@@ -68,60 +68,90 @@ int handleClient(int clientFd)
 	struct HttpRequest *req = NULL;
 	char requestBuffer[4096];
 	int status = EXIT_SUCCESS;
+	bool keepAlive = true;
 
-	// Receive HTTP request from the client
-	int bytesReceived = recv(clientFd, requestBuffer, sizeof(requestBuffer) - 1, 0);
-	if (bytesReceived < 0)
+	// Keep connection alive until client requests to close
+	while (keepAlive)
 	{
-		perror("server: recv");
-		status = EXIT_FAILURE;
-		goto RET;
+		// Clear buffer for next request
+		memset(requestBuffer, 0, sizeof(requestBuffer));
+
+		// Receive HTTP request from the client
+		int bytesReceived = recv(clientFd, requestBuffer, sizeof(requestBuffer) - 1, 0);
+		if (bytesReceived <= 0)
+		{
+			if (bytesReceived == 0)
+				printf("server: client closed connection\n");
+			else
+			{
+				perror("server: recv");
+				status = EXIT_FAILURE;
+			}
+			break; // Exit loop on connection close or error
+		}
+		requestBuffer[bytesReceived] = '\0';
+
+		printf("server: received HTTP request:\n%s\n", requestBuffer);
+		printf("server: processing request\n");
+
+		// Parse HTTP request
+		req = parseHttpRequest(requestBuffer);
+		if (!req || req->method == HTTP_UNKNOWN)
+		{
+			fprintf(stderr, "server: received empty or invalid request\n");
+			resp = calloc(1, sizeof(struct HttpResponse));
+			resp->statusCode = HTTP_BAD_REQUEST;
+			resp->statusMessage = strdup("Bad Request");
+			resp->contentType = strdup("text/plain");
+			resp->contentLength = 12;
+			resp->body = strdup("Bad Request\n");
+		}
+		else if (req->method == HTTP_GET)
+			resp = httpGetMethod(req);
+		else if (req->method == HTTP_POST)
+			resp = httpPostMethod(req);
+		else {
+			resp = calloc(1, sizeof(struct HttpResponse));
+			resp->statusCode = HTTP_NOT_FOUND;
+			resp->statusMessage = strdup("Not Found");
+			resp->contentType = strdup("text/plain");
+			resp->contentLength = 10;
+			resp->body = strdup("Not Found\n");
+		}
+
+		// Check if client wants to close connection
+		if (req)
+		{
+			const char *connectionHeader = getHeader("Connection", req);
+			if (connectionHeader && strcasecmp(connectionHeader, "close") == 0)
+			{
+				keepAlive = false;
+				printf("server: client requested connection close\n");
+			}
+		}
+
+		// Send HTTP response
+		if (sendHttpResponse(clientFd, resp, keepAlive) < 0)
+		{
+			perror("server: sendHttpResponse");
+			status = EXIT_FAILURE;
+			break;
+		}
+
+		printf("server: response sent, connection %s\n", keepAlive ? "kept alive" : "will close");
+
+		// Free allocated memory for this request
+		freeHttpRequest(req);
+		freeHttpResponse(resp);
+		req = NULL;
+		resp = NULL;
 	}
-	requestBuffer[bytesReceived] = '\0';
 
-	printf("server: received HTTP request:\n%s\n", requestBuffer);
-	printf("server: processing request\n");
-
-	// Parse HTTP request
-	req = parseHttpRequest(requestBuffer);
-	if (!req || req->method == HTTP_UNKNOWN)
-	{
-		fprintf(stderr, "server: received empty or invalid request\n");
-		resp = calloc(1, sizeof(struct HttpResponse));
-		resp->statusCode = HTTP_BAD_REQUEST;
-		resp->statusMessage = strdup("Bad Request");
-		resp->contentType = strdup("text/plain");
-		resp->contentLength = 12;
-		resp->body = strdup("Bad Request\n");
-	}
-	else if (req->method == HTTP_GET)
-		resp = httpGetMethod(req);
-	else if (req->method == HTTP_POST)
-		resp = httpPostMethod(req);
-	else {
-		resp = calloc(1, sizeof(struct HttpResponse));
-		resp->statusCode = HTTP_NOT_FOUND;
-		resp->statusMessage = strdup("Not Found");
-		resp->contentType = strdup("text/plain");
-		resp->contentLength = 10;
-		resp->body = strdup("Not Found\n");
-	}
-
-	// Send HTTP response
-	if (sendHttpResponse(clientFd, resp) < 0)
-	{
-		perror("server: sendHttpResponse");
-		status = EXIT_FAILURE;
-		goto RET;
-	}
-
-	printf("server: response sent\n");
-
-RET:
-	// Free allocated memory
-	freeHttpRequest(req);
-	freeHttpResponse(resp);
+	// Clean up any remaining allocated memory
+	if (req) freeHttpRequest(req);
+	if (resp) freeHttpResponse(resp);
 	close(clientFd);
+	printf("server: connection closed\n");
 	if (status == EXIT_FAILURE)
 		fprintf(stderr, "server: failed to handle client request\n");
 	return (status);

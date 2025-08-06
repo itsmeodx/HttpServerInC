@@ -92,7 +92,7 @@ struct HttpRequest *parseHttpRequest(const char *request)
 	return (req);
 }
 
-ssize_t sendHttpResponse(int clientFd, struct HttpResponse *response)
+ssize_t sendHttpResponse(int clientFd, struct HttpResponse *response, bool keepAlive)
 {
 	if (!response || !response->statusMessage || !response->contentType)
 		return (-1);
@@ -112,13 +112,14 @@ ssize_t sendHttpResponse(int clientFd, struct HttpResponse *response)
 					   "HTTP/1.1 %d %s\r\n"
 					   "Content-Type: %s\r\n"
 					   "Content-Length: %zu\r\n"
-					   "Connection: close\r\n"
+					   "Connection: %s\r\n"
 					   "%s"
 					   "\r\n",
 					   response->statusCode,
 					   response->statusMessage,
 					   response->contentType,
 					   response->contentLength,
+					   keepAlive ? "keep-alive" : "close",
 					   response->headers ? response->headers : "");
 	if (len < 0 || (size_t)len >= headersLen)
 	{

@@ -73,7 +73,7 @@ struct HttpResponse
 // src/Http.c
 const char *getHeader(const char *headerName, struct HttpRequest *req);
 struct HttpRequest *parseHttpRequest(const char *request);
-ssize_t sendHttpResponse(int clientFd, struct HttpResponse *response);
+ssize_t sendHttpResponse(int clientFd, struct HttpResponse *response, bool keepAlive);
 
 // src/HttpEndPoints.c
 struct HttpResponse *echoEndPoint(struct HttpRequest *req);
